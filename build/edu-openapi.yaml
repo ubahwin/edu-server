@@ -1,0 +1,54 @@
+openapi: 3.0.0
+info:
+  title: EduService OpenAPI
+  version: 1.0.0
+  contact: {}
+  description: Спецификация для серверной части EduService
+paths:
+  /token:
+    post:
+      summary: Отправка access_token
+      description: Принимает access_token и scope, возвращает статус обработки.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  description: Токен доступа.
+                  example: "jkajljsadKLJADSkjdsaklasdlJKsdjals"
+                scope:
+                  type: string
+                  description: Запрашиваемый объем прав.
+                  example: "basic,phone"
+              required:
+                - access_token
+                - scope
+      tags:
+        - edu
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: Результат выполнения запроса.
+                    example: true
+security: []
+servers:
+  - url: 'http://45.9.74.253:8081'
+    description: ''
+    variables: {}
+components:
+  links: {}
+  callbacks: {}
+  schemas: {}
+tags:
+  - name: edu
