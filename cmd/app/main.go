@@ -36,7 +36,7 @@ func main() {
 	)
 
 	srv := &http.Server{
-		Addr:    "0.0.0.0:8080",
+		Addr:    "0.0.0.0:7070",
 		Handler: r,
 	}
 
@@ -59,9 +59,9 @@ func startWebSocketServer(websocketManager *websocketapi.WebsocketManager) {
 	}
 	websocketGroup := websocketapi.New(upgrader, websocketManager, logger)
 
-	http.HandleFunc("/ws", websocketGroup.HandleConnections)
+	http.HandleFunc("/ws/{auth_id}", websocketGroup.HandleConnections)
 
-	err := http.ListenAndServe(":7070", nil)
+	err := http.ListenAndServe(":7071", nil)
 	if err != nil {
 		fmt.Println("Ошибка при запуске сервера:", err)
 	}

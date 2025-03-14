@@ -2,11 +2,11 @@ package websocketapi
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
 )
 
 func (g *Group) HandleConnections(w http.ResponseWriter, r *http.Request) {
+	authID := r.PathValue("auth_id")
 	// Обновляем HTTP-соединение до WebSocket
 	ws, err := g.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -14,6 +14,15 @@ func (g *Group) HandleConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	doneCh := make(chan struct{})
+
 	// Регистрируем соединение
-	g.websocketManager.AddConnection(uuid.New(), ws)
+	g.websocketManager.HandleConnection(doneCh, authID, ws)
+
+	<-doneCh
+
+	err = g.websocketManager.CloseConnection(authID)
+	if err != nil {
+		return
+	}
 }

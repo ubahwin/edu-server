@@ -7,6 +7,7 @@ import (
 )
 
 type TokenReq struct {
+	AuthID      string `json:"auth_id"`
 	AccessToken string `json:"access_token"`
 	Scope       string `json:"scope"`
 }
@@ -29,7 +30,7 @@ func (g *Group) Token(_ *api.Context, req *TokenReq) (*TokenResp, int) {
 		}, http.StatusOK
 	}
 
-	err = g.authorizer.VdovinIDAccessToken(req.AccessToken, scope)
+	err = g.authorizer.VdovinIDAccessToken(req.AuthID, req.AccessToken, scope)
 	if err != nil {
 		return &TokenResp{
 			Success: false,

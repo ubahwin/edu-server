@@ -2,7 +2,6 @@ package vdovinid
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"github.com/ubahwin/edu/server/internal/core/model"
 )
 
@@ -14,8 +13,8 @@ type SessionStorage interface {
 }
 
 type WebsocketManager interface {
-	SendMessage(id uuid.UUID, message string) error
-	CloseConnection(id uuid.UUID) error
+	SendMessage(id string, message string) error
+	CloseConnection(id string) error
 }
 
 type Authorizer struct {
@@ -30,7 +29,7 @@ func NewAuthorizer(ss SessionStorage, wm WebsocketManager) *Authorizer {
 	}
 }
 
-func (m *Authorizer) VdovinIDAccessToken(accessTokenOfVdovinID string, scope model.SessionScope) error {
+func (m *Authorizer) VdovinIDAccessToken(authID, accessTokenOfVdovinID string, scope model.SessionScope) error {
 	// Создаём сессию с edu_access_token и access_token
 	session, err := m.sessionStorage.Create(accessTokenOfVdovinID, scope)
 	if err != nil {
@@ -38,13 +37,7 @@ func (m *Authorizer) VdovinIDAccessToken(accessTokenOfVdovinID string, scope mod
 	}
 
 	// Отправляем edu_access_token
-	err = m.websocketManager.SendMessage(uuid.New(), session.AccessToken)
-	if err != nil {
-		return err
-	}
-
-	// Закрываем Websocket соединение
-	err = m.websocketManager.CloseConnection(uuid.New())
+	err = m.websocketManager.SendMessage(authID, session.AccessToken)
 	if err != nil {
 		return err
 	}

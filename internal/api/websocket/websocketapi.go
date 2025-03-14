@@ -1,8 +1,8 @@
 package websocketapi
 
 import (
+	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"log"
 	"sync"
 
@@ -28,58 +28,71 @@ func New(upgrader *websocket.Upgrader, websocketManager *WebsocketManager, log *
 // MARK: – WebsocketManager
 
 type WebsocketManager struct {
-	connections map[int]*websocket.Conn
+	connections map[string]chan string
 	mu          sync.Mutex
 }
 
 func NewWebsocketManager() *WebsocketManager {
 	return &WebsocketManager{
-		connections: make(map[int]*websocket.Conn),
+		connections: make(map[string]chan string),
 	}
 }
 
-func (cm *WebsocketManager) AddConnection(id uuid.UUID, conn *websocket.Conn) {
+func (cm *WebsocketManager) HandleConnection(doneCh chan<- struct{}, id string, conn *websocket.Conn) {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	//cm.connections[id] = conn
-	cm.connections[0] = conn
+
+	if cm.connections[id] == nil {
+		cm.connections[id] = make(chan string)
+	}
+
+	cm.mu.Unlock()
+
+	go func(id string, conn *websocket.Conn) {
+		for {
+			msg, ok := <-cm.connections[id]
+			if !ok {
+				conn.Close()
+				delete(cm.connections, id)
+				return
+			}
+
+			err := conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			if err != nil {
+				fmt.Printf("ошибка отправки сообщения: %v\n", err)
+			}
+
+			doneCh <- struct{}{}
+		}
+	}(id, conn)
 }
 
-func (cm *WebsocketManager) SendMessage(id uuid.UUID, message string) error {
+func (cm *WebsocketManager) SendMessage(id string, message string) error {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	conn, exists := cm.connections[0]
-	//conn, exists := cm.connections[id]
-	if !exists {
-		return fmt.Errorf("соединение с ID %s не найдено", id)
+	if _, ok := cm.connections[id]; !ok {
+		return errors.New("no connection")
 	}
+	cm.mu.Unlock()
 
-	err := conn.WriteMessage(websocket.TextMessage, []byte(message))
-	if err != nil {
-		return fmt.Errorf("ошибка отправки сообщения: %v", err)
-	}
+	go func(id string, message string) {
+		cm.mu.Lock()
+		conn := cm.connections[id]
+		cm.mu.Unlock()
 
-	fmt.Printf("Сообщение отправлено в соединение %s: %s\n", id, message)
+		conn <- message
+	}(id, message)
+
 	return nil
 }
 
-func (cm *WebsocketManager) CloseConnection(id uuid.UUID) error {
+func (cm *WebsocketManager) CloseConnection(id string) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	conn, exists := cm.connections[0]
-	//conn, exists := cm.connections[id]
-	if !exists {
-		return fmt.Errorf("соединение с ID %s не найдено", id)
+	if _, ok := cm.connections[id]; !ok {
+		return errors.New("no connection")
 	}
 
-	err := conn.Close()
-	if err != nil {
-		return err
-	}
+	close(cm.connections[id])
 
-	//delete(cm.connections, id)
-	delete(cm.connections, 0)
 	return nil
 }

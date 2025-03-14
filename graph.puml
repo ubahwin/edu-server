@@ -1,0 +1,196 @@
+@startuml
+top to bottom direction
+package cmd/app{
+annotation cmd/app {
+-const refreshTokenLength: INT
+-const accessTokenTTL: 
+-const accessTokenLength: INT
+
+-main()
+-startWebSocketServer(websocketManager *WebsocketManager)
+}
+}
+package internal/api/vdovinid{
+annotation internal/api/vdovinid {
+
+
++New(log *Logger, authorizer *Authorizer): *Group
+}
+class TokenReq {
++AuthID: string
++AccessToken: string
++Scope: string
++Validate(_ *Context): error
+}
+class TokenResp {
++Success: bool
++Comment: string
+
+}
+class Group {
+-authorizer: *Authorizer
+-log: *Logger
++Token(_ *Context, req *TokenReq): *TokenResp, int
+}
+}
+package internal/api/websocket{
+annotation internal/api/websocket {
+
+
++New(upgrader *Upgrader, websocketManager *WebsocketManager, log *Logger): *Group
++NewWebsocketManager(): *WebsocketManager
+}
+class WebsocketManager {
+-connections: map[string]chan string
+-mu: Mutex
++HandleConnection(doneCh chan interface{}, id string, conn *Conn)
++SendMessage(id string, message string): error
++CloseConnection(id string): error
+}
+class Group {
+-upgrader: *Upgrader
+-websocketManager: *WebsocketManager
+-log: *Logger
++HandleConnections(w ResponseWriter, r *Request)
+}
+}
+package internal/api{
+annotation internal/api {
+
+
++ErrHandler(_ *Context, err error): interface
++CORS(ctx *Context)
+}
+interface Validator{
++Validate(ctx *Context): error
+}
+class Context {
++: Context
+-cancel: CancelFunc
+-w: ResponseWriter
+-r: *Request
++SetCancellableCtx(baseCtx Context, cancel CancelFunc)
++SetHTTPWriter(w ResponseWriter)
++SetHTTPRequest(r *Request)
++SetHeader(key string, value string)
++GetHeader(key string): string
++StopChain()
++GetMethod(): string
++Decode(dest interface): error
++WriteResponse(statusCode int, resp interface): error
+}
+class ErrorResponse {
++Error: string
+
+}
+}
+package internal/core/model{
+annotation internal/core/model {
+-const SessionScopeAuthenticatorEntry: SessionScopeEntry
+-const SessionScopePhoneEntry: SessionScopeEntry
+-const SessionScopeBasicInfoEntry: SessionScopeEntry
+-const SessionScopeEmailEntry: SessionScopeEntry
+-var sessionScopeEntryNames: 
+-var ErrInvalidScopeString: 
++ParseSessionScope(scopeStr string): SessionScope, error
+}
+class SessionScopeEntry {
+
+
+}
+class SessionScope {
+
++IsAllowed(scopeAccess SessionScope): bool
+}
+class Session {
++ID: UUID
++Scope: SessionScope
++AccessTokenOfVdovinID: string
++AccessToken: string
++RefreshToken: string
++AccessTokenTTL: Duration
++UpdatedAt: Time
++CreatedAt: Time
+
+}
+}
+package internal/core/vdovinid{
+annotation internal/core/vdovinid {
+
+-var ErrInvalidPassword: 
++NewAuthorizer(ss SessionStorage, wm WebsocketManager): *Authorizer
+}
+interface SessionStorage{
++Create(accessTokenOfVdovinID string, scope SessionScope): *Session, error
++Get(accessToken string): *Session, error
++Refresh(refreshToken string): *Session, error
++Delete(accessToken string): error
+}
+interface WebsocketManager{
++SendMessage(id string, message string): error
++CloseConnection(id string): error
+}
+class Authorizer {
+-sessionStorage: SessionStorage
+-websocketManager: WebsocketManager
++VdovinIDAccessToken(authID string, accessTokenOfVdovinID string, scope SessionScope): error
+}
+}
+package internal/storage/session{
+annotation internal/storage/session {
+
+-var ErrNotFound: 
++NewMem(accessTokenLength int, refreshTokenLength int, accessTokenTTL Duration): *Mem
+}
+class Mem {
+-sessions: map[string]Session
+-mu: Mutex
+-accessTokenLength: int
+-refreshTokenLength: int
+-accessTokenTTL: Duration
++Create(accessTokenOfVdovinID string, scope SessionScope): *Session, error
++Get(accessToken string): *Session, error
++Refresh(refreshToken string): *Session, error
++Delete(accessToken string): error
+}
+class Session {
++ID: UUID
++Scope: SessionScope
++AccessTokenOfVdovinID: string
++AccessToken: string
++RefreshToken: string
++AccessTokenTTL: Duration
++UpdatedAt: Time
++CreatedAt: Time
+
+}
+}
+package pkg/phasher{
+annotation pkg/phasher {
+
+
++NewBcrypt(): *Bcrypt
+}
+class Bcrypt {
+
++Hash(password string): string, error
++Compare(hash string, password string): bool, error
+}
+}
+package pkg/strrand{
+annotation pkg/strrand {
+
+
++RandSeq(length int): []byte
++RandSeqStr(length int): string
+}
+}
+"Group" --> "Authorizer"
+"Group" --> "WebsocketManager"
+"Authorizer" --> "WebsocketManager"
+"Session" --> "SessionScope"
+"Session" --> "SessionScope"
+"TokenReq" --|> "Validator"
+"WebsocketManager" --|> "WebsocketManager"
+"Mem" --|> "SessionStorage"
+@enduml
